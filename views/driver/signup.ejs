@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ride-Sharing Application</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f2f2f2;
+      }
+
+      /* Default styles */
+      .riderSignupPageContainer {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+      }
+
+      label {
+        margin-top: 10px;
+      }
+
+      input[type="text"],
+      input[type="email"],
+      input[type="number"],
+      input[type="password"],
+      input[type="file"] {
+        padding: 8px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+        font-size: 16px;
+      }
+
+      .signupBtn {
+        background-color: #4caf50;
+        color: white;
+        font-size: 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        padding: 10px;
+        margin-top: 20px;
+      }
+
+      .signupBtn:hover {
+        background-color: #45a049;
+      }
+
+      /* Media query for smaller screens */
+      @media screen and (max-width: 480px) {
+        .riderSignupPageContainer {
+          max-width: 100%;
+          padding: 20px;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        input[type="password"],
+        input[type="file"] {
+          font-size: 14px;
+        }
+
+        .signupBtn {
+          font-size: 14px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="riderSignupPageContainer">
+      <form action="/driver/signup" method="post" enctype="multipart/form-data">
+        <label for="name">Name</label>
+        <input placeholder="John Doe" type="text" name="name" required />
+        <label for="email">Email</label>
+        <input
+          placeholder="example@example.com"
+          type="email"
+          name="email"
+          id="riderEmail"
+          required
+        />
+        <label for="phoneNumber">Phone No.</label>
+        <input
+          placeholder="9999999999"
+          type="number"
+          name="phoneNumber"
+          required
+        />
+        <label for="password">Password</label>
+        <input
+          placeholder="Password"
+          type="password"
+          name="password"
+          required
+        />
+        <label for="vahicleName">Vehicle Name</label>
+        <input
+          placeholder="Honda City"
+          type="text"
+          name="vehicleName"
+          required
+        />
+        <label for="vehicleNumber">Vehicle Number</label>
+        <input
+          placeholder="MH14GQ1420"
+          type="text"
+          name="vehicleNumber"
+          required
+        />
+        <label for="vehicleType">Vehicle Type</label>
+        <input
+          placeholder="Bike/Car/Auto"
+          type="text"
+          name="vehicleType"
+          required
+        />
+        <label for="photo">Upload photo</label>
+        <input type="file" name="photo" />
+        <input class="signupBtn" type="submit" value="Signup" />
+        <p>Account already exists? <a href="/driver/login">Login</a></p>
+      </form>
+      <div>
+        <% if (error) {%>
+        <h2><%= error%></h2>
+        <% }%>
+      </div>
+    </div>
+  </body>
+</html>

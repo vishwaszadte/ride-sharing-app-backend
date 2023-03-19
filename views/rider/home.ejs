@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ride-Sharing Application</title>
+
+    <style>
+      /* General styles */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+      }
+
+      .riderHomeContainer {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .riderHomeNavbar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        height: 60px;
+        padding: 0 20px;
+        background-color: #fff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .riderProfileBtn {
+        background-color: transparent;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+      }
+
+      .riderProfileBtn:hover {
+        color: #0077ff;
+      }
+
+      .riderLocation {
+        margin-top: 30px;
+        padding: 20px;
+        background-color: #f2f2f2;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .riderLocation h2 {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .riderLocation h3 {
+        font-size: 18px;
+        margin-bottom: 10px;
+      }
+
+      .riderLocation span {
+        font-weight: bold;
+      }
+
+      .driversContainer {
+        display: flex;
+        flex-wrap: wrap;
+        margin-top: 30px;
+      }
+
+      .driverCard {
+        margin-left: auto;
+        margin-right: auto;
+        flex: 1 0 300px;
+        margin: 10px;
+        padding: 20px;
+        background-color: #fff;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .driverCard {
+        background-color: #fff;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .driverCard img {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        object-fit: cover;
+        margin-bottom: 10px;
+      }
+
+      .driverCard h2 {
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      .driverCard h3 {
+        font-size: 1rem;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      .driverCard form {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 10px;
+      }
+
+      .driverCard .driverDetailsBtn,
+      .driverCard .requestRideBtn {
+        padding: 10px;
+        font-size: 1rem;
+        border: none;
+        border-radius: 5px;
+        background-color: #008000;
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.3s ease-in-out;
+      }
+
+      .driverCard .driverDetailsBtn:hover,
+      .driverCard .requestRideBtn:hover {
+        background-color: #006400;
+      }
+
+      /* Media queries */
+      @media only screen and (max-width: 768px) {
+        /* Drivers */
+        .driverCard {
+          width: calc(50% - 20px);
+        }
+      }
+
+      @media only screen and (max-width: 480px) {
+        /* Drivers */
+        .driverCard {
+          width: 90%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="riderHomeContainer">
+      <nav class="riderHomeNavbar">
+        <button class="riderProfileBtn">Your Profile</button>
+      </nav>
+      <% if (rider.location) { %>
+      <div class="riderLocation">
+        <h2>Your location is</h2>
+        <h3>Address: <span><%= rider.location.formattedAddress%></span></h3>
+        <h3>Pincode: <span><%= rider.location.pincode%></span></h3>
+      </div>
+      <% } %> <% if (drivers.length > 0) { %>
+      <ul class="driversContainer">
+        <% drivers.forEach(function(driver) { %>
+        <li class="driverCard">
+          <% if (driver.photo) { %>
+          <img src="<%= driver.photo%>" alt="Driver Photo" />
+          <% } else { %>
+          <img
+            src="https://previews.123rf.com/images/puruan/puruan1702/puruan170208984/72742803-driver-avatar-icon-in-colors.jpg"
+            alt="Driver Photo"
+          />
+          <% } %>
+          <h2><%= driver.name %></h2>
+          <h3>Vehicle Type: <%= driver.vehicleType %></h3>
+          <form action="/rider/driver-detail/<%= driver._id %>" method="GET">
+            <input
+              type="submit"
+              class="driverDetailsBtn"
+              value="More details"
+            />
+          </form>
+          <!-- <button action class="driverDetailsBtn" id="<%= driver._id %>">
+            More details
+          </button> -->
+          <button class="requestRideBtn" id="<%= driver._id %>">
+            Request ride
+          </button>
+        </li>
+        <% }) %>
+      </ul>
+      <% } %>
+    </div>
+  </body>
+  <script>
+    const updateRiderLocation = (position) => {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      // Check if we have already updated the location in the past minute
+      const lastUpdated = localStorage.getItem("lastUpdated");
+      if (lastUpdated && Date.now() - lastUpdated < 60000) {
+        // If we have already updated the location, don't do it again
+        return;
+      }
+
+      // Make API call to update user's location in the database
+      fetch("/rider/update-location", {
+        method: "POST",
+        body: JSON.stringify({
+          lat: lat,
+          lon: lon,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Network response was not ok");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          // Update the lastUpdated time in localStorage
+          localStorage.setItem("lastUpdated", Date.now());
+
+          console.log(data);
+
+          // Reload the page after the API call completes
+          window.location.reload(false);
+        })
+        .catch((error) => {
+          console.error("There was a problem with the API call:", error);
+        });
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(updateRiderLocation);
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
+  </script>
+</html>

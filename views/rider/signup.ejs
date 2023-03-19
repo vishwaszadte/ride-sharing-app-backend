@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ride-Sharing Application</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f2f2f2;
+      }
+
+      .riderSignupPageContainer {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+
+      form {
+        background-color: white;
+        padding: 20px;
+        box-shadow: 0px 0px 10px #bbb;
+        border-radius: 10px;
+        width: 400px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      label {
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      input {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        font-size: 16px;
+      }
+
+      .signupBtn {
+        background-color: green;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        border: none;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      .signupBtn:hover {
+        background-color: lightgreen;
+      }
+
+      h2 {
+        color: red;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="riderSignupPageContainer">
+      <form action="/rider/signup" method="post">
+        <label for="name">Name</label>
+        <input placeholder="John Doe" type="text" name="name" required />
+        <label for="email">Email</label>
+        <input
+          placeholder="example@example.com"
+          type="email"
+          name="email"
+          id="riderEmail"
+          required
+        />
+        <label for="phoneNumber">Phone No.</label>
+        <input
+          placeholder="9999999999"
+          type="number"
+          name="phoneNumber"
+          required
+        />
+        <label for="password">Password</label>
+        <input
+          placeholder="Password"
+          type="password"
+          name="password"
+          required
+        />
+        <input class="signupBtn" type="submit" value="Signup" />
+        <p>Account already exists? <a href="/rider/login">Login</a></p>
+      </form>
+      <div>
+        <% if (error) {%>
+        <h2><%= error%></h2>
+        <% }%>
+      </div>
+    </div>
+  </body>
+</html>

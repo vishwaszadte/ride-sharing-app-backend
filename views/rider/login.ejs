@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ride-Sharing Application</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f1f1f1;
+      }
+
+      .riderLoginPageContainer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+      }
+
+      form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: white;
+        padding: 2rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+      }
+
+      label {
+        font-weight: bold;
+        margin-top: 1rem;
+      }
+
+      input[type="email"],
+      input[type="password"] {
+        padding: 0.5rem;
+        width: 100%;
+        margin-top: 0.5rem;
+        border-radius: 5px;
+        border: 1px solid lightgray;
+        font-size: 16px;
+      }
+
+      .loginBtn {
+        margin-top: 1rem;
+        padding: 0.5rem 1rem;
+        background-color: blue;
+        color: white;
+        border-radius: 5px;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      .loginBtn:hover {
+        background-color: darkblue;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="riderLoginPageContainer">
+      <form action="/rider/login" method="post">
+        <label for="email">Email</label>
+        <input
+          placeholder="Email"
+          type="email"
+          name="email"
+          id="riderEmail"
+          required
+        />
+        <label for="password">Password</label>
+        <input
+          placeholder="Password"
+          type="password"
+          name="password"
+          required
+        />
+        <input class="loginBtn" type="submit" value="Login" />
+        <p>New here? <a href="/rider/signup">Register</a></p>
+        <p>Not a rider? <a href="/driver/login">Driver login</a></p>
+      </form>
+      <div>
+        <% if (error) {%>
+        <h2><%= error%></h2>
+        <% }%>
+      </div>
+    </div>
+  </body>
+</html>

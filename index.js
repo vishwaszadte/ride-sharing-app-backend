@@ -4,6 +4,7 @@ const session = require("express-session");
 const fs = require("fs");
 require("dotenv").config();
 const cors = require("cors");
+const morgan = require("morgan");
 
 // console.log(process.env);
 
@@ -35,6 +36,7 @@ app.use(
     origin: "*",
   })
 );
+app.use(morgan("combined"));
 
 app.get("/", function (req, res) {
   res.render("home");

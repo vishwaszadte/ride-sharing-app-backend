@@ -31,8 +31,10 @@ router.route("/login").post((req, res) => {
         }
       );
       res.status(200).json({ rider, token });
+      return;
     } else {
       res.status(400).json({ error: "Invalid email or password" });
+      return;
     }
   });
 });
@@ -49,10 +51,12 @@ router
       .save()
       .then((savedRider) => {
         res.status(201).json(savedRider);
+        return;
       })
       .catch((err) => {
         console.log(err);
         res.json({ error: err });
+        return;
       });
 
     // try {
@@ -70,30 +74,29 @@ router
 router.route("/home").get(async (req, res) => {
   const authHeader = req.headers.authorization;
   const token = authHeader.split(" ")[1];
-  let riderID;
 
   // Verify and decode the token
-  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decoded) => {
     if (err) {
       // Handle token verification error
       return res.status(401).json({ message: "Invalid token" });
     }
 
-    // Get the rider ID from the decoded token
-    riderID = decoded.rider_id;
+    const riderID = decoded.rider_id;
+
+    const filter = {};
+
+    try {
+      const drivers = await Driver.find(filter);
+      const rider = await Rider.findById(riderID);
+
+      res.status(200).json({ drivers, rider });
+      return;
+    } catch (err) {
+      res.status(500).json({ error: err });
+      return;
+    }
   });
-  // const riderID = req.session.rider._id;
-
-  const filter = {};
-
-  try {
-    const drivers = await Driver.find(filter);
-    const rider = await Rider.findById(riderID);
-
-    res.status(200).json({ drivers, rider });
-  } catch (err) {
-    res.status(500).json({ error: err });
-  }
 });
 
 router.route("/driver-detail/:driverId").get(async (req, res, next) => {
@@ -123,28 +126,26 @@ router.route("/update-location").post(async (req, res) => {
   const token = authHeader.split(" ")[1];
   let riderID;
 
-  // Verify and decode the token
-  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
-    if (err) {
-      // Handle token verification error
-      return res.status(401).json({ message: "Invalid token" });
-    }
+  try {
+    // Verify and decode the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
 
     // Get the rider ID from the decoded token
     riderID = decoded.rider_id;
-  });
 
-  const options = {
-    provider: "mapquest",
-    httpAdapter: "https",
-    apiKey: process.env.MAPQUEST_API_KEY,
-    formatter: "json",
-  };
+    const options = {
+      provider: "mapquest",
+      httpAdapter: "https",
+      apiKey: process.env.MAPQUEST_API_KEY,
+      formatter: "json",
+    };
 
-  const geocoder = NodeGeocoder(options);
+    const geocoder = NodeGeocoder(options);
 
-  try {
-    data = await geocoder.reverse({ lat: req.body.lat, lon: req.body.lon });
+    const data = await geocoder.reverse({
+      lat: req.body.lat,
+      lon: req.body.lon,
+    });
 
     const newLocation = {
       formattedAddress: data[0].formattedAddress,
@@ -155,25 +156,20 @@ router.route("/update-location").post(async (req, res) => {
       pincode: data[0].zipcode,
     };
 
-    Rider.findOneAndUpdate(
+    const updatedRider = await Rider.findOneAndUpdate(
       { _id: riderID },
       { $set: { location: newLocation } },
       { new: true }
-    )
-      .then((updatedRider) => {
-        res.status(201).json({
-          rider: updatedRider,
-        });
-      })
-      .catch((err) => {
-        res.status(400).json({
-          error: err,
-        });
-      });
+    );
+
+    res.status(201).json({
+      rider: updatedRider,
+    });
   } catch (err) {
     res.status(400).json({
-      error: err,
+      error: err.message,
     });
+    return;
   }
 });
 

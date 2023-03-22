@@ -24,7 +24,7 @@ router.route("/login").post((req, res) => {
   Rider.findOne({ email: email, password: password }).then((rider) => {
     if (rider) {
       const token = jwt.sign(
-        { rider_id: rider._id, email: rider.email },
+        { rider_id: rider._id },
         process.env.JWT_SECRET_KEY,
         {
           expiresIn: "48h",

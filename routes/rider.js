@@ -84,11 +84,11 @@ router.route("/home").get(async (req, res) => {
 
     const riderID = decoded.rider_id;
 
-    const filter = {};
-
     try {
-      const drivers = await Driver.find(filter);
       const rider = await Rider.findById(riderID);
+      const drivers = await Driver.find({
+        "location.pincode": rider.location.pincode,
+      });
 
       res.status(200).json({ drivers, rider });
       return;

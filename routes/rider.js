@@ -104,19 +104,14 @@ router.route("/driver-detail/:driverId").get(async (req, res, next) => {
 
   Driver.findById(driverId, (err, driver) => {
     if (err) {
-      res
-        .status(500)
-        .render("rider/driver-detail", { driver: driver, error: null });
+      res.status(500).json({ error: err });
     } else {
       if (!driver) {
-        res.status(404).render("rider/driver-detail", {
-          driver: driver,
+        res.status(404).json({
           error: "Driver not found",
         });
       }
-      res
-        .status(200)
-        .render("rider/driver-detail", { driver: driver, error: null });
+      res.status(200).json({ driver: driver });
     }
   });
 });

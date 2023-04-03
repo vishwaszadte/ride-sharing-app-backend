@@ -129,9 +129,9 @@ router.route("/update-location").post(async (req, res) => {
     riderID = decoded.rider_id;
 
     const options = {
-      provider: "mapquest",
+      provider: "google",
       httpAdapter: "https",
-      apiKey: process.env.MAPQUEST_API_KEY,
+      apiKey: process.env.GOOGLE_MAPS_API_KEY,
       formatter: "json",
     };
 

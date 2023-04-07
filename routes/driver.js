@@ -5,6 +5,7 @@ const multer = require("multer");
 const AWS = require("aws-sdk");
 const fileUpload = require("express-fileupload");
 const jwt = require("jsonwebtoken");
+const NodeGeocoder = require("node-geocoder");
 
 const storage = multer.memoryStorage({
   destination: function (req, file, cb) {
@@ -98,6 +99,88 @@ router.route("/signup").post(upload.single("photo"), (req, res) => {
         return;
       });
   });
+});
+
+router.route("/home").get(async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader.split(" ")[1];
+
+  // Verify and decode the token
+  jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decoded) => {
+    if (err) {
+      // Handle token verification error
+      return res.status(401).json({ message: "Invalid token" });
+    }
+
+    const driverID = decoded.driver_id;
+
+    // try {
+    //   const rider = await Rider.findById(riderID);
+    //   const drivers = await Driver.find({
+    //     "location.pincode": rider.location.pincode,
+    //   });
+
+    //   res.status(200).json({ drivers, rider });
+    //   return;
+    // } catch (err) {
+    //   res.status(500).json({ error: err });
+    //   return;
+    // }
+
+    res.status(200).json(driverID);
+  });
+});
+
+router.route("/update-location").post(async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader.split(" ")[1];
+  let driverID;
+
+  try {
+    // Verify and decode the token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+
+    // Get the rider ID from the decoded token
+    driverID = decoded.driver_id;
+
+    const options = {
+      provider: "google",
+      httpAdapter: "https",
+      apiKey: process.env.GOOGLE_MAPS_API_KEY,
+      formatter: "json",
+    };
+
+    const geocoder = NodeGeocoder(options);
+
+    const data = await geocoder.reverse({
+      lat: req.body.lat,
+      lon: req.body.lon,
+    });
+
+    const newLocation = {
+      formattedAddress: data[0].formattedAddress,
+      latitude: data[0].latitude,
+      longitude: data[0].longitude,
+      city: data[0].city,
+      country: data[0].country,
+      pincode: data[0].zipcode,
+    };
+
+    const updatedDriver = await Driver.findOneAndUpdate(
+      { _id: driverID },
+      { $set: { location: newLocation } },
+      { new: true }
+    );
+
+    res.status(200).json({
+      driver: updatedDriver,
+    });
+  } catch (err) {
+    res.status(400).json({
+      error: err.message,
+    });
+    return;
+  }
 });
 
 module.exports = router;

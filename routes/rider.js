@@ -1,12 +1,15 @@
 const express = require("express");
 const Rider = require("../models/rider");
 const Driver = require("../models/driver");
+const Ride = require("../models/ride");
 const NodeGeocoder = require("node-geocoder");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 
 const router = express.Router();
 router.use(express.json());
+
+let riderId;
 
 router.route("/login").post((req, res) => {
   const email = req.body.email;
@@ -83,6 +86,7 @@ router.route("/home").get(async (req, res) => {
     }
 
     const riderID = decoded.rider_id;
+    riderId = decoded.rider_id;
 
     try {
       const rider = await Rider.findById(riderID);
@@ -166,6 +170,37 @@ router.route("/update-location").post(async (req, res) => {
     });
     return;
   }
+});
+
+router.route("/request-ride").post((req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader.split(" ")[1];
+
+  // Verify and decode the token
+  jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decoded) => {
+    if (err) {
+      // Handle token verification error
+      return res.status(401).json({ message: "Invalid token" });
+    }
+
+    const riderID = decoded.rider_id;
+    const newRide = new Ride({
+      rider_id: riderID,
+      source: req.body.source,
+      destination: req.body.destination,
+      status: "requested",
+    });
+
+    // save the new ride to the database
+    newRide
+      .save()
+      .then((ride) => {
+        res.status(201).json({ message: "Ride requested successfully" });
+      })
+      .catch((error) => {
+        res.status(500).json({ message: error });
+      });
+  });
 });
 
 module.exports = router;

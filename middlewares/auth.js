@@ -1,43 +1,39 @@
 const jwt = require("jsonwebtoken");
 
-const generateToken = (payload) => {
-  // Generate a new JWT token with the payload
-  const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
-
-  return token;
-};
-
-const authMiddleware = (req, res, next) => {
+// Middleware function for verifying JWT token for rider
+const verifyRiderToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
 
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "Unauthorized" });
+  if (!token) {
+    return res.status(401).json({ message: "No token provided" });
   }
 
-  const token = authHeader.split(" ")[1];
-
-  try {
-    // Verify the JWT token and extract the payload
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Check if the token is about to expire (e.g., within the next 10 minutes)
-    const now = Date.now().valueOf() / 1000;
-    const exp = payload.exp;
-    const timeUntilExpiration = exp - now;
-
-    if (timeUntilExpiration < 600) {
-      // If token is about to expire (within 10 minutes)
-      // Generate a new token with the payload and send it back to the client
-      const newToken = generateToken(payload);
-      res.set("Authorization", `Bearer ${newToken}`);
+  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "Invalid token" });
     }
-
-    req.user = payload; // Attach the payload to the request object
+    req.riderID = decoded.rider_id;
     next();
-  } catch (error) {
-    console.error(error);
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+  });
 };
 
-module.exports = authMiddleware;
+// Middleware function for verifying JWT token for driver
+const verifyDriverToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ message: "No token provided" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "Invalid token" });
+    }
+    req.driverID = decoded.driver_id;
+    next();
+  });
+};
+
+module.exports = { verifyRiderToken, verifyDriverToken };

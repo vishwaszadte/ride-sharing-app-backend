@@ -6,6 +6,8 @@ const AWS = require("aws-sdk");
 const fileUpload = require("express-fileupload");
 const jwt = require("jsonwebtoken");
 const NodeGeocoder = require("node-geocoder");
+const Rider = require("../models/rider");
+const { verifyDriverToken } = require("../middlewares/auth");
 
 const storage = multer.memoryStorage({
   destination: function (req, file, cb) {
@@ -180,6 +182,48 @@ router.route("/update-location").post(async (req, res) => {
       error: err.message,
     });
     return;
+  }
+});
+
+router.route("/get-rides").get(verifyDriverToken, async (req, res) => {
+  const driverID = req.driverID;
+  try {
+    // Get the current driver
+    const driver = await Driver.findById(driverID);
+    const pincode = driver.location.pincode;
+
+    // Get all the riders who are in the same pincode as the current driver
+    const riders = await Rider.find({ "location.pincode": pincode });
+
+    // If there are not riders in the area, send en empty array as response
+    if (!riders.length) {
+      return res.status(200).json({ rides: [] });
+    }
+
+    // Initialize an empty rides array
+    const rides = [];
+
+    // Loop through each rider and retrieve ride based on rider_id and status as "requested"
+    for (let i = 0; i < riders.length; i++) {
+      const ride = await Ride.findOne({
+        rider_id: riders[i]._id,
+        status: "requested",
+      });
+      if (ride) {
+        rides.push({
+          rider: {
+            _id: riders[i]._id,
+            name: riders[i].name,
+            phoneNumber: riders[i].phoneNumber,
+          },
+          ride: ride,
+        });
+      }
+    }
+
+    res.status(200).json({ rides: rides });
+  } catch (err) {
+    res.status(500).json({ message: "Something went wrong" });
   }
 });
 

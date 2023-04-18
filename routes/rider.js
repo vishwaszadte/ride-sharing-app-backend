@@ -203,4 +203,46 @@ router.route("/request-ride").post((req, res) => {
   });
 });
 
+router.route("/get-ride-info").get(async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader.split(" ")[1];
+
+  // Verify and decode the token
+  jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decoded) => {
+    if (err) {
+      // Handle token verification error
+      return res.status(401).json({ message: "Invalid token" });
+    }
+
+    const riderID = decoded.rider_id;
+    try {
+      const ride = await Ride.findOne({ rider_id: riderID });
+
+      // If ride not found
+      if (!ride) {
+        return res.status(404).json({ message: "Ride not found" });
+      }
+      // If ride is still at requested
+      if (ride.status === "requested") {
+        return res.status(200).json({ ride: ride });
+      }
+
+      // Fetching the driver info if the ride is accepted
+      if (ride.status === "accepted") {
+        const driver = await Driver.findById(ride.driver_id);
+
+        // If the driver is not found
+        if (!driver) {
+          return res.status(404).json({ message: "Driver info not found" });
+        }
+
+        // Everything is fine
+        res.status(200).json({ ride: ride, driver: driver });
+      }
+    } catch (err) {
+      res.status(500).json({ message: "Something went wrong" });
+    }
+  });
+});
+
 module.exports = router;

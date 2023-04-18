@@ -2,12 +2,14 @@ const mongoose = require("mongoose");
 
 const rideSchema = new mongoose.Schema({
   rider_id: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Rider",
     required: true,
   },
   driver_id: {
-    type: String,
-    default: "",
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Driver",
+    default: null,
   },
   source: {
     type: String,

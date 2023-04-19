@@ -220,7 +220,11 @@ router.route("/get-ride-info").get(verifyRiderToken, async (req, res) => {
     }
 
     // Fetching the driver info if the ride is accepted
-    if (ride.status === "accepted") {
+    if (
+      ride.status === "accepted" ||
+      ride.status === "started" ||
+      ride.status === "completed"
+    ) {
       const driver = await Driver.findById(ride.driver_id);
 
       // If the driver is not found

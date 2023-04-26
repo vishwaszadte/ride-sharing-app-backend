@@ -6,6 +6,7 @@ const NodeGeocoder = require("node-geocoder");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const { verifyRiderToken } = require("../middlewares/auth");
+const bcrypt = require("bcrypt");
 
 const router = express.Router();
 router.use(express.json());
@@ -25,22 +26,42 @@ router.route("/login").post((req, res) => {
     return;
   }
 
-  Rider.findOne({ email: email, password: password }).then((rider) => {
+  Rider.findOne({ email: email }).then(async (rider) => {
     if (rider) {
-      const token = jwt.sign(
-        { rider_id: rider._id },
-        process.env.JWT_SECRET_KEY,
-        {
-          expiresIn: "48h",
-        }
-      );
-      res.status(200).json({ rider, token });
-      return;
+      const result = await bcrypt.compare(password, rider.password);
+      if (result) {
+        const token = jwt.sign(
+          { rider_id: rider._id },
+          process.env.JWT_SECRET_KEY,
+          {
+            expiresIn: "48h",
+          }
+        );
+        return res.status(200).json({ rider, token });
+      } else {
+        return res.status(400).json({ error: "Incorrect password" });
+      }
     } else {
-      res.status(400).json({ error: "Invalid email or password" });
-      return;
+      res.status(404).json({ error: "This rider does not exist" });
     }
   });
+
+  // Rider.findOne({ email: email, password: password }).then((rider) => {
+  //   if (rider) {
+  //     const token = jwt.sign(
+  //       { rider_id: rider._id },
+  //       process.env.JWT_SECRET_KEY,
+  //       {
+  //         expiresIn: "48h",
+  //       }
+  //     );
+  //     res.status(200).json({ rider, token });
+  //     return;
+  //   } else {
+  //     res.status(400).json({ error: "Invalid email or password" });
+  //     return;
+  //   }
+  // });
 });
 
 router
@@ -49,7 +70,10 @@ router
     res.render("rider/signup", { error: "" });
   })
   .post(async (req, res) => {
+    const password = req.body.password;
     const rider = new Rider(req.body);
+    const hash = await bcrypt.hash(password, 10);
+    rider.password = hash;
 
     rider
       .save()

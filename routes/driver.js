@@ -6,6 +6,8 @@ const jwt = require("jsonwebtoken");
 const NodeGeocoder = require("node-geocoder");
 const Rider = require("../models/rider");
 const { verifyDriverToken } = require("../middlewares/auth");
+const bcrypt = require("bcrypt");
+const Ride = require("../models/ride");
 
 const storage = multer.memoryStorage({
   destination: function (req, file, cb) {
@@ -32,19 +34,23 @@ router.route("/login").post((req, res) => {
     return;
   }
 
-  Driver.findOne({ email: email, password: password }).then((driver) => {
+  Driver.findOne({ email: email }).then(async (driver) => {
     if (driver) {
-      const token = jwt.sign(
-        { driver_id: driver._id },
-        process.env.JWT_SECRET_KEY,
-        {
-          expiresIn: "48h",
-        }
-      );
-      res.status(200).json({ driver, token });
+      const result = await bcrypt.compare(password, driver.password);
+      if (result) {
+        const token = jwt.sign(
+          { driver_id: driver._id },
+          process.env.JWT_SECRET_KEY,
+          {
+            expiresIn: "48h",
+          }
+        );
+        return res.status(200).json({ driver, token });
+      } else {
+        res.status(400).json({ error: "Incorrect password" });
+      }
     } else {
-      res.status(400).json({ error: "Invalid email or password" });
-      return;
+      res.status(404).json({ error: "This driver does not exist" });
     }
   });
 });
@@ -66,7 +72,7 @@ router.route("/signup").post(upload.single("photo"), (req, res) => {
     ContentType: "image/jpeg", // Necessary to define the image content-type to view the photo in the browser with the link
   };
 
-  s3.upload(params, (err, data) => {
+  s3.upload(params, async (err, data) => {
     if (err) {
       console.log(err);
       res.status(500).json({ error: err }); // if we get any error while uploading error message will be returned.
@@ -86,6 +92,10 @@ router.route("/signup").post(upload.single("photo"), (req, res) => {
       vehicleType: req.body.vehicleType,
       photo: data.Location,
     });
+
+    const password = req.body.password;
+    const hash = await bcrypt.hash(password, 10);
+    driver.password = hash;
 
     driver
       .save()

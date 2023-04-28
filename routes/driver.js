@@ -244,7 +244,7 @@ router
     try {
       const ride = await Ride.findByIdAndUpdate(
         rideID,
-        { status: newStatus, driver_id: driverID },
+        { status: newStatus, driver_id: driverID, updated_at: Date.now() },
         { new: true }
       );
       res.status(200).json({ ride });
@@ -253,27 +253,25 @@ router
     }
   });
 
-router
-  .route("/current-ride:rideID")
-  .get(verifyDriverToken, async (req, res) => {
-    const driverID = req.driverID;
-    rideID = req.params["rideID"];
-    try {
-      const ride = await Ride.findById(rideID);
-      if (!ride) {
-        return res.status(404).json({ message: "Ride not found." });
-      }
-      const rider = await Rider.findById(ride.rider_id);
-      res.status(200).json({
-        ride: ride,
-        rider: {
-          name: rider.name,
-          _id: rider._id,
-        },
-      });
-    } catch (err) {
-      res.status(500).json({ message: "Something went wrong" });
+router.route("/get-ride/:rideID").get(verifyDriverToken, async (req, res) => {
+  const driverID = req.driverID;
+  const rideID = req.params["rideID"];
+  try {
+    const ride = await Ride.findById(rideID);
+    if (!ride) {
+      return res.status(404).json({ message: "Ride not found." });
     }
-  });
+    const rider = await Rider.findById(ride.rider_id);
+    res.status(200).json({
+      ride: ride,
+      rider: {
+        name: rider.name,
+        _id: rider._id,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Something went wrong" });
+  }
+});
 
 module.exports = router;

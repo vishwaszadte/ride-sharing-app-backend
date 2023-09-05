@@ -7,13 +7,9 @@ const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const { verifyRiderToken } = require("../middlewares/auth");
 const bcrypt = require("bcrypt");
-
 const router = express.Router();
-router.use(express.json());
 
-let riderId;
-
-router.route("/login").post((req, res) => {
+router.route("/login").post(async (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
 
@@ -26,42 +22,26 @@ router.route("/login").post((req, res) => {
     return;
   }
 
-  Rider.findOne({ email: email }).then(async (rider) => {
-    if (rider) {
-      const result = await bcrypt.compare(password, rider.password);
-      if (result) {
-        const token = jwt.sign(
-          { rider_id: rider._id },
-          process.env.JWT_SECRET_KEY,
-          {
-            expiresIn: "48h",
-          }
-        );
-        return res.status(200).json({ rider, token });
-      } else {
-        return res.status(400).json({ error: "Incorrect password" });
-      }
-    } else {
-      res.status(404).json({ error: "This rider does not exist" });
+  try {
+    const rider = await Rider.findOne({ email: email });
+    if (!rider) {
+      return res.status(404).json({ error: "This rider does not exist" });
     }
-  });
 
-  // Rider.findOne({ email: email, password: password }).then((rider) => {
-  //   if (rider) {
-  //     const token = jwt.sign(
-  //       { rider_id: rider._id },
-  //       process.env.JWT_SECRET_KEY,
-  //       {
-  //         expiresIn: "48h",
-  //       }
-  //     );
-  //     res.status(200).json({ rider, token });
-  //     return;
-  //   } else {
-  //     res.status(400).json({ error: "Invalid email or password" });
-  //     return;
-  //   }
-  // });
+    const isValidPassword = await bcrypt.compare(password, rider.password);
+    if (!isValidPassword) {
+      return res.status(403).json({ error: "Incorrect password" });
+    }
+
+    const token = jwt.sign({ rider_id: rider._id }, process.env.JWT_SECRET_KEY);
+
+    const { password: _, ...riderWithoutPassword } = rider.toObject();
+
+    res.status(200).json({ rider: riderWithoutPassword, token });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router
@@ -72,103 +52,75 @@ router
   .post(async (req, res) => {
     const password = req.body.password;
     const rider = new Rider(req.body);
-    const hash = await bcrypt.hash(password, 10);
-    rider.password = hash;
-
-    rider
-      .save()
-      .then((savedRider) => {
-        res.status(201).json(savedRider);
-        return;
-      })
-      .catch((err) => {
-        console.log(err);
-        res.json({ error: err });
-        return;
-      });
-
-    // try {
-    //   await rider.save();
-    //   res.status(201).render("rider/login", {
-    //     error: "User created successfully. Please log in.",
-    //   });
-    //   res.status(201).json(rider);
-    // } catch (err) {
-    //   console.log(err);
-    //   res.render("rider/signup", { error: err });
-    // }
-  });
-
-router.route("/home").get(async (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader.split(" ")[1];
-
-  // Verify and decode the token
-  jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decoded) => {
-    if (err) {
-      // Handle token verification error
-      return res.status(401).json({ message: "Invalid token" });
-    }
-
-    const riderID = decoded.rider_id;
-    riderId = decoded.rider_id;
 
     try {
-      const rider = await Rider.findById(riderID);
-      const drivers = await Driver.find({
-        "location.pincode": rider.location.pincode,
-      });
+      // Hash the password
+      const hash = await bcrypt.hash(password, 10);
+      rider.password = hash;
 
-      res.status(200).json({ drivers, rider });
-      return;
+      const savedRider = await rider.save();
+
+      const { password: _, ...riderWithoutPassword } = savedRider.toObject();
+
+      res.status(201).json(riderWithoutPassword);
     } catch (err) {
-      res.status(500).json({ error: err });
-      return;
+      res.status(500).json({ error: err.message });
     }
   });
-});
 
-router.route("/driver-detail/:driverId").get(async (req, res, next) => {
-  const driverId = req.params["driverId"];
-
-  Driver.findById(driverId, (err, driver) => {
-    if (err) {
-      res.status(500).json({ error: err });
-    } else {
-      if (!driver) {
-        res.status(404).json({
-          error: "Driver not found",
-        });
-      }
-      res.status(200).json({ driver: driver });
-    }
-  });
-});
-
-router.route("/update-location").post(async (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader.split(" ")[1];
-  let riderID;
+router.route("/home").get(verifyRiderToken, async (req, res) => {
+  const riderID = req.riderID;
 
   try {
-    // Verify and decode the token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+    const rider = await Rider.findById(riderID).select("-password");
+    if (!rider) {
+      return res.status(404).json({ error: "Rider not found" });
+    }
 
-    // Get the rider ID from the decoded token
-    riderID = decoded.rider_id;
+    const drivers = await Driver.find({
+      "location.pincode": rider.location.pincode,
+    }).select("-password");
 
-    const options = {
-      provider: "google",
-      httpAdapter: "https",
-      apiKey: process.env.GOOGLE_MAPS_API_KEY,
-      formatter: "json",
-    };
+    res.status(200).json({ drivers, rider });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    const geocoder = NodeGeocoder(options);
+router
+  .route("/driver-detail/:driverId")
+  .get(verifyRiderToken, async (req, res, next) => {
+    const driverId = req.params["driverId"];
 
+    try {
+      const driver = await Driver.findById(driverId).select("-password");
+      if (!driver) {
+        return res.status(404).json({ error: "Driver not found" });
+      }
+      res.status(200).json({ driver: driver });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+router.route("/update-location").post(verifyRiderToken, async (req, res) => {
+  const riderID = req.riderID;
+
+  const { lat, lon } = req.body;
+
+  const options = {
+    provider: "google",
+    httpAdapter: "https",
+    apiKey: process.env.GOOGLE_MAPS_API_KEY,
+    formatter: "json",
+  };
+
+  const geocoder = NodeGeocoder(options);
+
+  try {
     const data = await geocoder.reverse({
-      lat: req.body.lat,
-      lon: req.body.lon,
+      lat: lat,
+      lon: lon,
     });
 
     const newLocation = {
@@ -180,59 +132,48 @@ router.route("/update-location").post(async (req, res) => {
       pincode: data[0].zipcode,
     };
 
-    const updatedRider = await Rider.findOneAndUpdate(
-      { _id: riderID },
-      { $set: { location: newLocation } },
-      { new: true }
-    );
+    const updatedRider = await Rider.findByIdAndUpdate(riderID, {
+      $set: { location: newLocation },
+    }).select("-password");
 
-    res.status(201).json({
+    res.status(200).json({
       rider: updatedRider,
     });
   } catch (err) {
-    res.status(400).json({
+    res.status(500).json({
       error: err.message,
     });
-    return;
   }
 });
 
-router.route("/request-ride").post((req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader.split(" ")[1];
+router.route("/request-ride").post(verifyRiderToken, async (req, res) => {
+  const { source, destination } = req.body;
+  const riderID = req.riderID;
 
-  // Verify and decode the token
-  jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decoded) => {
-    if (err) {
-      // Handle token verification error
-      return res.status(401).json({ message: "Invalid token" });
+  try {
+    const rider = await Rider.findById(riderID);
+    if (!rider) {
+      return res.status(404).json({ message: "Rider not found" });
     }
 
-    const riderID = decoded.rider_id;
     const newRide = new Ride({
       rider_id: riderID,
-      source: req.body.source,
-      destination: req.body.destination,
+      source: source,
+      destination: destination,
       status: "requested",
     });
 
-    // save the new ride to the database
-    newRide
-      .save()
-      .then((ride) => {
-        res.status(201).json({ message: "Ride requested successfully" });
-      })
-      .catch((error) => {
-        res.status(500).json({ message: error });
-      });
-  });
+    await newRide.save();
+    res.status(201).json({ message: "Ride requested successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.route("/get-ride-info").get(verifyRiderToken, async (req, res) => {
   const riderID = req.riderID;
   try {
     const ride = await Ride.findOne({ rider_id: riderID });
-
     // If ride not found
     if (!ride) {
       return res.status(404).json({ message: "Ride not found" });
@@ -260,7 +201,7 @@ router.route("/get-ride-info").get(verifyRiderToken, async (req, res) => {
       res.status(200).json({ ride: ride, driver: driver });
     }
   } catch (err) {
-    res.status(500).json({ message: "Something went wrong" });
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -277,7 +218,7 @@ router.route("/get-ride-status").get(verifyRiderToken, async (req, res) => {
 
     res.status(200).json({ status: ride.status });
   } catch (err) {
-    res.status(500).json({ message: "Something went wrong" });
+    res.status(500).json({ error: err.message });
   }
 });
 

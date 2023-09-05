@@ -1,12 +1,9 @@
 const express = require("express");
 require("./database/index");
 const session = require("express-session");
-const fs = require("fs");
 require("dotenv").config();
 const cors = require("cors");
 const morgan = require("morgan");
-
-// console.log(process.env);
 
 // routes
 const driverRouter = require("./routes/driver");

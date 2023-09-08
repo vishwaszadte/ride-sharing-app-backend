@@ -9,8 +9,6 @@ const verifyRiderToken = async (req, res, next) => {
     return res.status(401).json({ message: "No token provided" });
   }
 
-  console.log(token);
-
   try {
     // Verify and decode the token
     const decoded = await jwt.verify(token, process.env.JWT_SECRET_KEY);
@@ -29,8 +27,6 @@ const verifyDriverToken = async (req, res, next) => {
   if (!token) {
     return res.status(401).json({ message: "No token provided" });
   }
-
-  console.log(token);
 
   try {
     // Verify and decode the token

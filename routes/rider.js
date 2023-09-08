@@ -3,7 +3,6 @@ const Rider = require("../models/rider");
 const Driver = require("../models/driver");
 const Ride = require("../models/ride");
 const NodeGeocoder = require("node-geocoder");
-const axios = require("axios");
 const jwt = require("jsonwebtoken");
 const { verifyRiderToken } = require("../middlewares/auth");
 const bcrypt = require("bcrypt");

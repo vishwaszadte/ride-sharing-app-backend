@@ -21,10 +21,10 @@ const upload = multer({ storage: storage });
 const router = new express.Router();
 router.use(express.json());
 
-router.route("/login").post((req, res) => {
-  const email = req.body.email;
-  const password = req.body.password;
+router.route("/login").post(async (req, res) => {
+  const { email, password } = req.body;
 
+  // Ensure email, password are present in the request
   if (!email) {
     res.status(400).json({ error: "Please enter email." });
     return;
@@ -34,28 +34,31 @@ router.route("/login").post((req, res) => {
     return;
   }
 
-  Driver.findOne({ email: email }).then(async (driver) => {
-    if (driver) {
-      const result = await bcrypt.compare(password, driver.password);
-      if (result) {
-        const token = jwt.sign(
-          { driver_id: driver._id },
-          process.env.JWT_SECRET_KEY,
-          {
-            expiresIn: "48h",
-          }
-        );
-        return res.status(200).json({ driver, token });
-      } else {
-        res.status(400).json({ error: "Incorrect password" });
-      }
-    } else {
+  try {
+    const driver = await Driver.findOne({ email: email });
+    if (!driver) {
       res.status(404).json({ error: "This driver does not exist" });
     }
-  });
+
+    const isValidPassword = await bcrypt.compare(password, driver.password);
+    if (!isValidPassword) {
+      res.status(403).json({ error: "Incorrect password" });
+    }
+
+    const token = jwt.sign(
+      { driver_id: driver._id },
+      process.env.JWT_SECRET_KEY
+    );
+
+    const { password: _, ...driverWithoutPassword } = driver;
+
+    res.status(200).json({ driver: driverWithoutPassword, token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.route("/signup").post(upload.single("photo"), (req, res) => {
+router.route("/signup").post(upload.single("photo"), async (req, res) => {
   // S3 instance to upload photo to bucket
   const s3 = new AWS.S3({
     accessKeyId: process.env.AWS_ACCESS_KEY, // accessKeyId that is stored in .env file
@@ -75,12 +78,10 @@ router.route("/signup").post(upload.single("photo"), (req, res) => {
   s3.upload(params, async (err, data) => {
     if (err) {
       console.log(err);
-      res.status(500).json({ error: err }); // if we get any error while uploading error message will be returned.
+      res.status(500).json({ error: err.message }); // if we get any error while uploading error message will be returned.
       return;
     }
     // If not then below code will be executed
-
-    console.log(data);
 
     const driver = new Driver({
       name: req.body.name,
@@ -100,71 +101,36 @@ router.route("/signup").post(upload.single("photo"), (req, res) => {
     driver
       .save()
       .then((savedDriver) => {
-        res.status(201).json(savedDriver);
+        const { password: _, ...driverWithoutPassword } = savedDriver;
+
+        res.status(201).json(driverWithoutPassword);
         return;
       })
       .catch((err) => {
         console.log(err);
-        res.json({ error: err });
+        res.status(500).json({ error: err.message });
         return;
       });
   });
 });
 
-router.route("/home").get(async (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader.split(" ")[1];
+router.route("/update-location").post(verifyDriverToken, async (req, res) => {
+  const { lat, lon } = req.body;
+  const driverID = req.driverID;
 
-  // Verify and decode the token
-  jwt.verify(token, process.env.JWT_SECRET_KEY, async (err, decoded) => {
-    if (err) {
-      // Handle token verification error
-      return res.status(401).json({ message: "Invalid token" });
-    }
+  const options = {
+    provider: "google",
+    httpAdapter: "https",
+    apiKey: process.env.GOOGLE_MAPS_API_KEY,
+    formatter: "json",
+  };
 
-    const driverID = decoded.driver_id;
-
-    // try {
-    //   const rider = await Rider.findById(riderID);
-    //   const drivers = await Driver.find({
-    //     "location.pincode": rider.location.pincode,
-    //   });
-
-    //   res.status(200).json({ drivers, rider });
-    //   return;
-    // } catch (err) {
-    //   res.status(500).json({ error: err });
-    //   return;
-    // }
-
-    res.status(200).json(driverID);
-  });
-});
-
-router.route("/update-location").post(async (req, res) => {
-  const authHeader = req.headers.authorization;
-  const token = authHeader.split(" ")[1];
-  let driverID;
+  const geocoder = NodeGeocoder(options);
 
   try {
-    // Verify and decode the token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-
-    // Get the rider ID from the decoded token
-    driverID = decoded.driver_id;
-
-    const options = {
-      provider: "google",
-      httpAdapter: "https",
-      apiKey: process.env.GOOGLE_MAPS_API_KEY,
-      formatter: "json",
-    };
-
-    const geocoder = NodeGeocoder(options);
-
     const data = await geocoder.reverse({
-      lat: req.body.lat,
-      lon: req.body.lon,
+      lat: lat,
+      lon: lon,
     });
 
     const newLocation = {
@@ -176,17 +142,15 @@ router.route("/update-location").post(async (req, res) => {
       pincode: data[0].zipcode,
     };
 
-    const updatedDriver = await Driver.findOneAndUpdate(
-      { _id: driverID },
-      { $set: { location: newLocation } },
-      { new: true }
-    );
+    const updatedDriver = await Driver.findByIdAndUpdate(driverID, {
+      $set: { location: newLocation },
+    }).select("-password");
 
     res.status(200).json({
       driver: updatedDriver,
     });
   } catch (err) {
-    res.status(400).json({
+    res.status(500).json({
       error: err.message,
     });
     return;
@@ -198,6 +162,12 @@ router.route("/get-rides").get(verifyDriverToken, async (req, res) => {
   try {
     // Get the current driver
     const driver = await Driver.findById(driverID);
+    if (!driver) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+    if (!driver.location) {
+      return res.status(200).json({ rides: [] });
+    }
     const pincode = driver.location.pincode;
 
     // Get all the riders who are in the same pincode as the current driver
@@ -208,30 +178,61 @@ router.route("/get-rides").get(verifyDriverToken, async (req, res) => {
       return res.status(200).json({ rides: [] });
     }
 
-    // Initialize an empty rides array
-    const rides = [];
+    const riderIDs = riders.map((rider) => rider._id);
 
-    // Loop through each rider and retrieve ride based on rider_id and status as "requested"
-    for (let i = 0; i < riders.length; i++) {
-      const ride = await Ride.findOne({
-        rider_id: riders[i]._id,
-        status: "requested",
-      });
-      if (ride) {
-        rides.push({
+    const rides = await Ride.aggregate([
+      {
+        $match: {
+          rider_id: { $in: riderIDs },
+          status: "requested",
+        },
+      },
+      {
+        $lookup: {
+          from: "riders",
+          localField: "rider_id",
+          foreignField: "_id",
+          as: "rider",
+        },
+      },
+      {
+        $unwind: "$rider",
+      },
+      {
+        $project: {
+          _id: 0,
           rider: {
-            _id: riders[i]._id,
-            name: riders[i].name,
-            phoneNumber: riders[i].phoneNumber,
+            _id: "$rider._id",
+            name: "$rider.name",
+            phoneNumber: "$rider.phoneNumber",
           },
-          ride: ride,
-        });
-      }
-    }
+          ride: "$$ROOT",
+        },
+      },
+    ]);
+
+    // // Loop through each rider and retrieve ride based on rider_id and status as "requested"
+    // for (let i = 0; i < riders.length; i++) {
+    //   const ride = await Ride.findOne({
+    //     rider_id: riders[i]._id,
+    //     status: "requested",
+    //   });
+    //   if (ride) {
+    //     rides.push({
+    //       rider: {
+    //         _id: riders[i]._id,
+    //         name: riders[i].name,
+    //         phoneNumber: riders[i].phoneNumber,
+    //       },
+    //       ride: ride,
+    //     });
+    //   }
+    // }
 
     res.status(200).json({ rides: rides });
   } catch (err) {
-    res.status(500).json({ message: "Something went wrong" });
+    console.log(err);
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -254,7 +255,6 @@ router
   });
 
 router.route("/get-ride/:rideID").get(verifyDriverToken, async (req, res) => {
-  const driverID = req.driverID;
   const rideID = req.params["rideID"];
   try {
     const ride = await Ride.findById(rideID);

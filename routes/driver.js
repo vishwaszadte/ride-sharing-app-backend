@@ -26,23 +26,21 @@ router.route("/login").post(async (req, res) => {
 
   // Ensure email, password are present in the request
   if (!email) {
-    res.status(400).json({ error: "Please enter email." });
-    return;
+    return res.status(400).json({ error: "Please enter email." });
   }
   if (!password) {
-    res.status(400).json({ error: "Please enter password." });
-    return;
+    return res.status(400).json({ error: "Please enter password." });
   }
 
   try {
     const driver = await Driver.findOne({ email: email });
     if (!driver) {
-      res.status(404).json({ error: "This driver does not exist" });
+      return res.status(404).json({ error: "This driver does not exist" });
     }
 
     const isValidPassword = await bcrypt.compare(password, driver.password);
     if (!isValidPassword) {
-      res.status(403).json({ error: "Incorrect password" });
+      return res.status(403).json({ error: "Incorrect password" });
     }
 
     const token = jwt.sign(
@@ -78,8 +76,7 @@ router.route("/signup").post(upload.single("photo"), async (req, res) => {
   s3.upload(params, async (err, data) => {
     if (err) {
       console.log(err);
-      res.status(500).json({ error: err.message }); // if we get any error while uploading error message will be returned.
-      return;
+      return res.status(500).json({ error: err.message }); // if we get any error while uploading error message will be returned.
     }
     // If not then below code will be executed
 
@@ -103,8 +100,7 @@ router.route("/signup").post(upload.single("photo"), async (req, res) => {
       .then((savedDriver) => {
         const { password: _, ...driverWithoutPassword } = savedDriver;
 
-        res.status(201).json(driverWithoutPassword);
-        return;
+        return res.status(201).json(driverWithoutPassword);
       })
       .catch((err) => {
         console.log(err);

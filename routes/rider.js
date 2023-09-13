@@ -172,11 +172,15 @@ router.route("/request-ride").post(verifyRiderToken, async (req, res) => {
 router.route("/get-ride-info").get(verifyRiderToken, async (req, res) => {
   const riderID = req.riderID;
   try {
-    const ride = await Ride.findOne({ rider_id: riderID });
-    // If ride not found
-    if (!ride) {
+    const rides = await Ride.find({ rider_id: riderID })
+      .sort({ created_at: -1 })
+      .limit(1);
+
+    if (rides.length === 0) {
       return res.status(404).json({ message: "Ride not found" });
     }
+
+    const ride = rides[0];
 
     // If ride is still at requested
     if (ride.status === "requested") {

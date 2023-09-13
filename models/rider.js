@@ -33,7 +33,8 @@ const riderSchema = mongoose.Schema({
   phoneNumber: {
     type: String,
     trim: true,
-    minlength: 9,
+    minLength: 10,
+    maxLength: 10,
   },
   location: {
     type: locationSchema,

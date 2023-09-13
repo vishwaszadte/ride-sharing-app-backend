@@ -33,7 +33,8 @@ const driverSchema = mongoose.Schema({
   phoneNumber: {
     type: String,
     trim: true,
-    minlength: 9,
+    minlength: 10,
+    maxlength: 10,
   },
   vehicleName: {
     type: String,
